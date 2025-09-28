@@ -27,5 +27,5 @@ A simple macOS application to automatically remount SMB shares when connections 
     ```
   - Save the application to your desired location.
 5. In System Settings > General > Login Items & Extensions, add the application to start it at login.
-6. On the first reboot the application will prompt for your password to allow mounting the shares, enter it and check "Remember this password in my keychain" to avoid being prompted again.
-7. On first run the application will request access to certain folders, grant access as needed.
+6. On the first reboot MacOS will prompt for your password to allow mounting the shares, enter it and check "Remember this password in my keychain" to avoid being prompted again.
+7. On first run MacOS will ask if the application can access certain folders, grant access as needed.
