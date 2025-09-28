@@ -1,0 +1,2 @@
+#!/bin/zsh
+exec /Users/steve/.cargo/bin/remounter steveds920 /Media,/home -p /Users/steve/scripts/restart-h265.sh >> ~/Downloads/.remounter.log 2>&1
