@@ -23,7 +23,7 @@ A simple macOS application to automatically remount SMB shares when connections 
   - Set the shell to `/bin/zsh`.
   - Enter the command and arguments to run `remounter`, for example:
     ```bash
-    /Users/yourusername/.cargo/bin/remounter <HOST> <SHARES> --post-mount-script /path/to/your/script.sh
+    /Users/yourusername/.cargo/bin/remounter <HOST> <SHARES> --post-mount-script /path/to/your/script.sh >> /path/to/logfile.log 2>&1
     ```
   - Save the application to your desired location.
 5. In System Settings > General > Login Items & Extensions, add the application to start it at login.
