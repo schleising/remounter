@@ -19,9 +19,10 @@ pub struct Remounter {
     server: String,
     socket_address: SocketAddr,
     smb_shares: Vec<PathBuf>,
+    post_mount_script: Option<String>,
 }
 
-pub fn new_remounter<S, I, P>(server: S, smb_shares: I) -> Result<Remounter>
+pub fn new_remounter<S, I, P>(server: S, smb_shares: I, post_mount_script: Option<String>) -> Result<Remounter>
 where
     S: Into<String>,
     I: IntoIterator<Item = P>,
@@ -40,6 +41,7 @@ where
         server,
         socket_address,
         smb_shares: smb_shares.into_iter().map(Into::into).collect(),
+        post_mount_script,
     };
 
     // Return the Remounter instance
@@ -92,6 +94,15 @@ impl Remounter {
                     match self.remount_shares() {
                         Ok(_) => println!("Remount successful"),
                         Err(e) => eprintln!("Remount failed: {}", e),
+                    }
+
+                    // If a post-mount script is provided, execute it
+                    if let Some(script) = &self.post_mount_script {
+                        println!("Executing post-mount script: {}", script);
+                        let status = Command::new("sh").arg("-c").arg(script).status()?;
+                        if !status.success() {
+                            eprintln!("Post-mount script failed with status: {}", status);
+                        }
                     }
 
                     // Update state to indicate the connection is now up

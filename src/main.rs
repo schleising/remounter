@@ -12,8 +12,12 @@ struct Args {
     /// The hostname to monitor (e.g., example.com)
     host: String,
 
-    /// The SMB shares to monitor
+    /// The SMB shares to remount (comma-separated paths)
     smb_shares: String,
+
+    /// A script to run after remounting
+    #[arg(short, long)]
+    post_mount_script: Option<String>,
 }
 
 fn main() {
@@ -27,9 +31,12 @@ fn main() {
     for share in &smb_shares {
         println!(" - {}", share.display());
     }
+    if let Some(script) = &args.post_mount_script {
+        println!("Post-mount script: {}", script);
+    }
 
     // Create the remounter
-    let remounter = new_remounter(args.host, smb_shares);
+    let remounter = new_remounter(args.host, smb_shares, args.post_mount_script);
 
     // Handle any errors that occur during remounter creation or execution
     let remounter = match remounter {
