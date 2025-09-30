@@ -60,8 +60,8 @@ impl Remounter {
 
     /// Check if the server is reachable
     fn is_up(&self, address: &SocketAddr) -> bool {
-        // Attempt to connect to the address with a timeout of 500 milliseconds
-        TcpStream::connect_timeout(address, Duration::from_millis(500)).is_ok()
+        // Attempt to connect to the address with a timeout of 2 seconds
+        TcpStream::connect_timeout(address, Duration::from_secs(2)).is_ok()
     }
 
     /// Check the connection status and trigger remounting when the connection is restored
