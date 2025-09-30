@@ -86,8 +86,8 @@ impl Remounter {
                 if !was_up {
                     // Log that the connection is back up
                     println!(
-                        "{} - {} is up, attempting to remount...",
-                        time_string, self.socket_address
+                        "{} - {}:{} is up, attempting to remount...",
+                        time_string, self.server, self.socket_address.port()
                     );
 
                     // Attempt to remount drives when the connection is back up
@@ -111,8 +111,8 @@ impl Remounter {
             } else if was_up {
                 // Log that the connection is down
                 println!(
-                    "{} - {} is down, will attempt to remount when it is back up",
-                    time_string, self.socket_address
+                    "{} - {}:{} is down, will attempt to remount when it is back up",
+                    time_string, self.server, self.socket_address.port()
                 );
 
                 // Update state to indicate the connection is now down
