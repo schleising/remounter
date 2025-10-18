@@ -1,4 +1,5 @@
 use std::{
+    fmt::Debug,
     net::{SocketAddr, TcpStream, ToSocketAddrs},
     path::{Path, PathBuf},
     process::Command,
@@ -13,6 +14,7 @@ use std::{
 use anyhow::Result;
 
 use signal_hook::flag::register;
+use tracing::{debug, error, info, instrument};
 
 /// Struct representing the Remounter
 pub struct Remounter {
@@ -22,10 +24,16 @@ pub struct Remounter {
     post_mount_script: Option<String>,
 }
 
-pub fn new_remounter<S, I, P>(server: S, smb_shares: I, post_mount_script: Option<String>) -> Result<Remounter>
+/// Create a new Remounter instance
+#[instrument]
+pub fn new_remounter<S, I, P>(
+    server: S,
+    smb_shares: I,
+    post_mount_script: Option<String>,
+) -> Result<Remounter>
 where
-    S: Into<String>,
-    I: IntoIterator<Item = P>,
+    S: Into<String> + Debug,
+    I: IntoIterator<Item = P> + Debug,
     P: Into<PathBuf>,
 {
     // Resolve the server address to a SocketAddr
@@ -50,6 +58,7 @@ where
 
 impl Remounter {
     /// Run the remounter
+    #[instrument(skip(self))]
     pub fn run(&self) -> Result<()> {
         // Run the connection check loop
         self.check_connection()?;
@@ -59,12 +68,14 @@ impl Remounter {
     }
 
     /// Check if the server is reachable
+    #[instrument(skip(self))]
     fn is_up(&self, address: &SocketAddr) -> bool {
         // Attempt to connect to the address with a timeout of 2 seconds
         TcpStream::connect_timeout(address, Duration::from_secs(2)).is_ok()
     }
 
     /// Check the connection status and trigger remounting when the connection is restored
+    #[instrument(skip(self))]
     fn check_connection(&self) -> Result<()> {
         // Register signal handlers for SIGTERM and SIGINT
         let term = Arc::new(AtomicBool::new(false));
@@ -76,32 +87,28 @@ impl Remounter {
 
         // Main loop to check connection status
         while !term.load(Ordering::Relaxed) {
-            // Get current time for logging
-            let now = chrono::offset::Local::now();
-            let format = chrono::format::strftime::StrftimeItems::new("%Y-%m-%d %H:%M:%S");
-            let time_string = now.format_with_items(format).to_string();
-
             // Check if the socket is up or down and handle state changes
             if self.is_up(&self.socket_address) {
                 if !was_up {
                     // Log that the connection is back up
-                    println!(
-                        "{} - {}:{} is up, attempting to remount...",
-                        time_string, self.server, self.socket_address.port()
+                    info!(
+                        "{}:{} is up, attempting to remount...",
+                        self.server,
+                        self.socket_address.port()
                     );
 
                     // Attempt to remount drives when the connection is back up
                     match self.remount_shares() {
-                        Ok(_) => println!("Remount successful"),
-                        Err(e) => eprintln!("Remount failed: {}", e),
+                        Ok(_) => info!("Remount successful"),
+                        Err(e) => error!("Remount failed: {}", e),
                     }
 
                     // If a post-mount script is provided, execute it
                     if let Some(script) = &self.post_mount_script {
-                        println!("Executing post-mount script: {}", script);
+                        info!("Executing post-mount script: {}", script);
                         let status = Command::new("sh").arg("-c").arg(script).status()?;
                         if !status.success() {
-                            eprintln!("Post-mount script failed with status: {}", status);
+                            error!("Post-mount script failed with status: {}", status);
                         }
                     }
 
@@ -110,9 +117,10 @@ impl Remounter {
                 }
             } else if was_up {
                 // Log that the connection is down
-                println!(
-                    "{} - {}:{} is down, will attempt to remount when it is back up",
-                    time_string, self.server, self.socket_address.port()
+                info!(
+                    "{}:{} is down, will attempt to remount when it is back up",
+                    self.server,
+                    self.socket_address.port()
                 );
 
                 // Update state to indicate the connection is now down
@@ -123,11 +131,12 @@ impl Remounter {
             sleep(Duration::from_secs(1));
         }
 
-        println!("Termination signal received, exiting...");
+        info!("Termination signal received, exiting...");
         Ok(())
     }
 
     /// Function to handle remounting a single share
+    #[instrument(skip(self))]
     fn remount(&self, smb_share: &Path) -> Result<()> {
         // Convert the share path to a string
         let share_path = smb_share
@@ -141,12 +150,12 @@ impl Remounter {
         );
 
         // Log the mount command for info
-        println!("Executing mount command: {}", mount_command);
+        debug!("Executing mount command: {}", mount_command);
 
         // Execute the mount command using AppleScript
         let status = Command::new("sh").arg("-c").arg(mount_command).status()?;
 
-            // Check if the command was successful, return an error if not
+        // Check if the command was successful, return an error if not
         if !status.success() {
             return Err(anyhow::anyhow!("Failed to execute mount command"));
         }
@@ -155,6 +164,7 @@ impl Remounter {
     }
 
     /// Remount all shares
+    #[instrument(skip(self))]
     fn remount_shares(&self) -> Result<()> {
         // Collect errors from remount attempts
         let errors = self
@@ -166,7 +176,7 @@ impl Remounter {
         // If there were any errors, log them and return an error
         if !errors.is_empty() {
             for error in errors {
-                eprintln!("Error remounting share: {}", error);
+                error!("Error remounting share: {}", error);
             }
             return Err(anyhow::anyhow!("One or more shares failed to remount"));
         }
