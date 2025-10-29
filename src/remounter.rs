@@ -144,6 +144,12 @@ impl Remounter {
     /// Function to handle remounting a single share
     #[instrument(skip(self))]
     fn remount(&self, smb_share: &Path) -> Result<()> {
+        // If the share path exists, skip remounting
+        if smb_share.exists() {
+            info!("Share {} is already mounted, skipping remount", smb_share.display());
+            return Err(anyhow::anyhow!("Share {} exists, not mounting", smb_share.display()));
+        }
+
         // Convert the share path to a string
         let share_path = smb_share
             .to_str()
