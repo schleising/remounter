@@ -70,8 +70,8 @@ impl Remounter {
     /// Check if the server is reachable
     #[instrument(skip(self))]
     fn is_up(&self, address: &SocketAddr) -> bool {
-        // Attempt to connect to the address with a timeout of 2 seconds
-        TcpStream::connect_timeout(address, Duration::from_secs(2)).is_ok()
+        // Attempt to connect to the address with a timeout of 5 seconds
+        TcpStream::connect_timeout(address, Duration::from_secs(5)).is_ok()
     }
 
     /// Check the connection status and trigger remounting when the connection is restored
@@ -90,6 +90,9 @@ impl Remounter {
             // Check if the socket is up or down and handle state changes
             if self.is_up(&self.socket_address) {
                 if !was_up {
+                    // Update state to indicate the connection is now up
+                    was_up = true;
+
                     // Log that the connection is back up
                     info!(
                         "{}:{} is up, attempting to remount...",
@@ -100,7 +103,13 @@ impl Remounter {
                     // Attempt to remount drives when the connection is back up
                     match self.remount_shares() {
                         Ok(_) => info!("Remount successful"),
-                        Err(e) => error!("Remount failed: {}", e),
+                        Err(e) => {
+                            // Log the remount failure
+                            error!("Remount failed: {}", e);
+
+                            // Continue to the next iteration of the loop without executing the post-mount script
+                            continue;
+                        }
                     }
 
                     // If a post-mount script is provided, execute it
@@ -111,9 +120,6 @@ impl Remounter {
                             error!("Post-mount script failed with status: {}", status);
                         }
                     }
-
-                    // Update state to indicate the connection is now up
-                    was_up = true;
                 }
             } else if was_up {
                 // Log that the connection is down
