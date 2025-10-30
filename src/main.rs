@@ -1,14 +1,10 @@
 mod remounter;
 
-use std::{
-    fs::create_dir_all,
-    path::{Path, PathBuf},
-};
+use std::path::Path;
 
 use clap::Parser;
 
 use tracing::{error, info, instrument};
-use tracing_appender::{non_blocking, rolling};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::remounter::new_remounter;
@@ -32,36 +28,13 @@ fn main() {
     // Create a human-readable time formatter
     let custom_format = time::format_description::well_known::Rfc3339;
 
-    // Set up logging directory
-    let mut log_dir = PathBuf::from(std::env::var("HOME").expect("HOME not set"));
-    log_dir.push("logs/remounter");
-    create_dir_all(&log_dir).expect("Failed to create log directory");
-
-    let file_appender = rolling::daily(log_dir, "remounter.json");
-    let (file_writer, _file_guard) = non_blocking(file_appender);
-
     // Human-readable console logs (with colours)
     let console_layer = fmt::layer()
         .with_timer(fmt::time::UtcTime::new(custom_format))
         .with_target(true);
 
-    // Machine-readable JSON logs (for parsing / ingestion)
-    let json_layer = fmt::layer()
-        .json()
-        .with_timer(fmt::time::UtcTime::new(custom_format))
-        .with_thread_names(true)
-        .with_target(true)
-        .with_file(true)
-        .with_line_number(true)
-        .with_current_span(true)
-        .with_span_list(true)
-        .with_writer(file_writer);
-
     // Initialize the tracing subscriber with both layers
-    tracing_subscriber::registry()
-        .with(console_layer)
-        .with(json_layer)
-        .init();
+    tracing_subscriber::registry().with(console_layer).init();
 
     // Parse command-line arguments
     let args = Args::parse();
@@ -101,7 +74,4 @@ fn main() {
     }
 
     info!("Remounter exited normally");
-
-    // Clean up any resources if necessary
-    drop(_file_guard);
 }

@@ -70,8 +70,8 @@ impl Remounter {
     /// Check if the server is reachable
     #[instrument(skip(self))]
     fn is_up(&self, address: &SocketAddr) -> bool {
-        // Attempt to connect to the address with a timeout of 5 seconds
-        TcpStream::connect_timeout(address, Duration::from_secs(5)).is_ok()
+        // Attempt to connect to the address with a timeout of 10 seconds
+        TcpStream::connect_timeout(address, Duration::from_secs(10)).is_ok()
     }
 
     /// Check the connection status and trigger remounting when the connection is restored
@@ -144,20 +144,29 @@ impl Remounter {
     /// Function to handle remounting a single share
     #[instrument(skip(self))]
     fn remount(&self, smb_share: &Path) -> Result<()> {
-        // If the share path exists, skip remounting
-        if smb_share.exists() {
-            info!("Share {} is already mounted, skipping remount", smb_share.display());
-            return Err(anyhow::anyhow!("Share {} exists, not mounting", smb_share.display()));
-        }
-
         // Convert the share path to a string
         let share_path = smb_share
             .to_str()
             .ok_or_else(|| anyhow::anyhow!("Invalid share path"))?;
 
+        // Prepend /Volumes to the share path
+        let local_share_path = Path::new("/Volumes").join(share_path);
+
+        // Skip remounting if the share is already mounted
+        if local_share_path.exists() {
+            debug!(
+                "Share {} is already mounted, skipping remount",
+                local_share_path.display()
+            );
+            return Err(anyhow::anyhow!(
+                "Share {} exists, not mounting",
+                local_share_path.display()
+            ));
+        }
+
         // Construct the mount command
         let mount_command = format!(
-            "osascript -e 'mount volume \"smb://{}{}\"'",
+            "osascript -e 'mount volume \"smb://{}/{}\"'",
             self.server, share_path,
         );
 
