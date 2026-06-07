@@ -152,14 +152,18 @@ impl Remounter {
         // Prepend /Volumes to the share path
         let local_share_path = Path::new("/Volumes").join(share_path);
 
-        // Skip remounting if the share is already mounted
+        // Skip remounting if the share is mounted and healthy
         if local_share_path.exists() {
-            debug!(
-                "Share {} is already mounted, skipping remount",
-                local_share_path.display()
-            );
+            let marker = local_share_path.join(".smb_remounter");
+            if marker.exists() {
+                debug!(
+                    "Share {} is mounted and healthy, skipping remount",
+                    local_share_path.display()
+                );
+                return Ok(());
+            }
             return Err(anyhow::anyhow!(
-                "Share {} exists, not mounting",
+                "Share {} exists but is not healthy, not mounting",
                 local_share_path.display()
             ));
         }
