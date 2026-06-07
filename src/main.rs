@@ -41,7 +41,9 @@ fn main() {
     let smb_shares: Vec<&Path> = args
         .smb_shares
         .split(',')
-        .map(|share| Path::new(share.trim()))
+        .map(|share| share.trim().trim_start_matches('/'))
+        .filter(|share| !share.is_empty())
+        .map(Path::new)
         .collect();
 
     // Combine the startup message into a single multiline log entry

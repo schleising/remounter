@@ -144,13 +144,14 @@ impl Remounter {
     /// Function to handle remounting a single share
     #[instrument(skip(self))]
     fn remount(&self, smb_share: &Path) -> Result<()> {
-        // Convert the share path to a string
-        let share_path = smb_share
+        // Convert the share name to a string (strip any leading slash)
+        let share_name = smb_share
             .to_str()
-            .ok_or_else(|| anyhow::anyhow!("Invalid share path"))?;
+            .map(|share| share.trim_start_matches('/'))
+            .filter(|share| !share.is_empty())
+            .ok_or_else(|| anyhow::anyhow!("Invalid share name"))?;
 
-        // Prepend /Volumes to the share path
-        let local_share_path = Path::new("/Volumes").join(share_path);
+        let local_share_path = Path::new("/Volumes").join(share_name);
 
         // Skip remounting if the share is mounted and healthy
         if local_share_path.exists() {
@@ -171,7 +172,7 @@ impl Remounter {
         // Construct the mount command
         let mount_command = format!(
             "osascript -e 'mount volume \"smb://{}/{}\"'",
-            self.server, share_path,
+            self.server, share_name,
         );
 
         // Log the mount command for info
